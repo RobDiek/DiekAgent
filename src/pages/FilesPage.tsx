@@ -53,8 +53,8 @@ export function FilesPage() {
           setCsvData(null)
         }
       } else if (isUnsupported) {
-        content = `[${file.name}] - This file type requires server-side processing. For now, please describe the content manually or use TXT/CSV files.`
-        toast(`${file.type || file.name} support requires backend processing. Content placeholder added.`, { icon: 'ℹ️' })
+        content = `[${file.name}] - This file type is not yet supported for direct parsing. Please convert to TXT or CSV format for full analysis, or type a description of the file content below.`
+        toast(`${file.type || file.name.split('.').pop()?.toUpperCase()} files are not yet supported for direct parsing. Please use TXT or CSV.`, { icon: 'ℹ️' })
       } else {
         content = await file.text()
         setCsvData(null)

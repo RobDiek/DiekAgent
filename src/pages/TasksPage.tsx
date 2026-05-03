@@ -1,19 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ListTodo,
   Search,
   FileText,
   Presentation,
   Bot,
-  Filter,
   RefreshCw,
 } from 'lucide-react'
 import { TopBar } from '../components/TopBar'
 import { Card } from '../components/Card'
 import { StatusBadge } from '../components/Badge'
 import { EmptyState } from '../components/EmptyState'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import type { TaskItem, TaskStatus } from '../types'
 import { formatDate } from '../lib/utils'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   research: Search,
@@ -21,44 +23,6 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   presentation: Presentation,
   agent_run: Bot,
 }
-
-const MOCK_TASKS: TaskItem[] = [
-  {
-    id: '1',
-    type: 'research',
-    title: 'AI in Healthcare Research',
-    status: 'completed',
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '2',
-    type: 'document',
-    title: 'Q4 Strategy Blog Post',
-    status: 'completed',
-    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '3',
-    type: 'presentation',
-    title: 'Product Roadmap 2025',
-    status: 'completed',
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '4',
-    type: 'agent_run',
-    title: 'Code Review: auth module',
-    status: 'failed',
-    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '5',
-    type: 'research',
-    title: 'Blockchain use cases',
-    status: 'running',
-    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-  },
-]
 
 const TYPE_LABELS: Record<string, string> = {
   research: 'Research',
@@ -68,10 +32,63 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 export function TasksPage() {
-  const [tasks] = useState<TaskItem[]>(MOCK_TASKS)
+  const { user } = useAuth()
+  const [tasks, setTasks] = useState<TaskItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [search, setSearch] = useState('')
+
+  useEffect(() => { if (user) loadTasks() }, [user])
+
+  async function loadTasks() {
+    if (!user) return
+    setLoading(true)
+    try {
+      const [researchRes, docsRes, presRes, agentRunsRes] = await Promise.all([
+        supabase.from('research_tasks').select('id, topic, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('documents').select('id, title, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('presentations').select('id, title, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('agent_runs').select('id, input, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+      ])
+
+      const combined: TaskItem[] = [
+        ...(researchRes.data ?? []).map((r) => ({
+          id: r.id,
+          type: 'research' as const,
+          title: r.topic,
+          status: r.status as TaskStatus,
+          created_at: r.created_at,
+        })),
+        ...(docsRes.data ?? []).map((d) => ({
+          id: d.id,
+          type: 'document' as const,
+          title: d.title,
+          status: 'completed' as TaskStatus,
+          created_at: d.created_at,
+        })),
+        ...(presRes.data ?? []).map((p) => ({
+          id: p.id,
+          type: 'presentation' as const,
+          title: p.title,
+          status: 'completed' as TaskStatus,
+          created_at: p.created_at,
+        })),
+        ...(agentRunsRes.data ?? []).map((a) => ({
+          id: a.id,
+          type: 'agent_run' as const,
+          title: a.input.substring(0, 60) + (a.input.length > 60 ? '…' : ''),
+          status: a.status as TaskStatus,
+          created_at: a.created_at,
+        })),
+      ]
+
+      combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      setTasks(combined)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filtered = tasks.filter((t) => {
     if (filterStatus !== 'all' && t.status !== filterStatus) return false
@@ -94,8 +111,8 @@ export function TasksPage() {
         title="Task Center"
         subtitle="Monitor all AI tasks in one place"
         actions={
-          <button className="btn-ghost p-2" title="Refresh">
-            <RefreshCw size={16} />
+          <button onClick={() => loadTasks()} disabled={loading} className="btn-ghost p-2" title="Refresh">
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         }
       />
@@ -159,7 +176,11 @@ export function TasksPage() {
         </div>
 
         {/* Task List */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={<ListTodo size={24} />}
             title="No tasks found"

@@ -129,7 +129,7 @@ export function ChatPage() {
 
     const aiMessages: AIMessage[] = [
       ...messages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-      { role: 'user', content: userContent },
+      { role: 'user' as const, content: userContent },
     ]
 
     let fullResponse = ''
@@ -155,7 +155,7 @@ export function ChatPage() {
       setLoading(false)
       if (convId) loadConversations()
     }
-  }, [input, loading, messages, model, currentConvId, navigate, user])
+  }, [input, loading, model, currentConvId, navigate, user])
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {

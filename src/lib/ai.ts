@@ -4,6 +4,9 @@ const apiBase = import.meta.env.VITE_AI_API_BASE_URL || 'https://api.openai.com/
 const apiKey = import.meta.env.VITE_AI_API_KEY || 'placeholder-key'
 export const defaultModel = import.meta.env.VITE_AI_DEFAULT_MODEL || 'gpt-4o-mini'
 
+// NOTE: dangerouslyAllowBrowser is required for client-side AI calls.
+// The API key is sourced from environment variables set at build time.
+// For production deployments, use a backend proxy to keep the API key server-side.
 export const openaiClient = new OpenAI({
   apiKey,
   baseURL: apiBase,

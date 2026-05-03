@@ -45,7 +45,7 @@ export function DocumentsPage() {
   const [newType, setNewType] = useState<DocumentType>('blog')
   const [newTitle, setNewTitle] = useState('')
 
-  useEffect(() => { loadDocuments() }, [])
+  useEffect(() => { loadDocuments() }, [user])
 
   async function loadDocuments() {
     if (!user) return

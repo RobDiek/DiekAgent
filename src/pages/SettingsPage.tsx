@@ -44,10 +44,17 @@ export function SettingsPage() {
     email: user?.email ?? '',
   })
 
-  const [aiConfig, setAiConfig] = useState({
-    apiBase: import.meta.env.VITE_AI_API_BASE_URL || 'https://api.openai.com/v1',
-    apiKey: '',
-    defaultModel: import.meta.env.VITE_AI_DEFAULT_MODEL || defaultModel,
+  const [aiConfig, setAiConfig] = useState<{ apiBase: string; apiKey: string; defaultModel: string }>(() => {
+    const defaults = {
+      apiBase: import.meta.env.VITE_AI_API_BASE_URL || 'https://api.openai.com/v1',
+      apiKey: '',
+      defaultModel: import.meta.env.VITE_AI_DEFAULT_MODEL || defaultModel,
+    }
+    try {
+      const saved = localStorage.getItem('diekai_ai_config')
+      if (saved) return { ...defaults, ...JSON.parse(saved) }
+    } catch { /* ignore */ }
+    return defaults
   })
 
   const [theme] = useState('dark')
@@ -55,8 +62,15 @@ export function SettingsPage() {
   async function handleSaveProfile() {
     setSaving(true)
     try {
-      await new Promise((r) => setTimeout(r, 500))
+      if (user) {
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({ id: user.id, full_name: profile.fullName, updated_at: new Date().toISOString() })
+        if (error) throw error
+      }
       toast.success('Profile saved!')
+    } catch {
+      toast.error('Failed to save profile')
     } finally {
       setSaving(false)
     }
@@ -65,8 +79,8 @@ export function SettingsPage() {
   async function handleSaveAI() {
     setSaving(true)
     try {
-      await new Promise((r) => setTimeout(r, 500))
-      toast.success('AI configuration saved! Restart the app to apply changes.')
+      localStorage.setItem('diekai_ai_config', JSON.stringify(aiConfig))
+      toast.success('AI configuration saved!')
     } finally {
       setSaving(false)
     }

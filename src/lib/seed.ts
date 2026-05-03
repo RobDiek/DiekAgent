@@ -53,7 +53,7 @@ export async function seedDemoData() {
     description: 'Reviews code for quality and best practices',
     system_prompt: 'You are an expert code reviewer. Analyze code for bugs, performance issues, and best practices. Provide constructive feedback.',
     model: 'gpt-4o-mini',
-    allowed_tools: ['code_analysis', 'search'],
+    allowed_tools: ['code_analysis', 'web_search'],
   })
 
   console.log('Demo data seeded successfully')
