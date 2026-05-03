@@ -38,6 +38,14 @@ export function ChatPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const messagesRef = useRef<ChatMessage[]>([])
+  const setMessagesWithRef = (updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+    setMessages((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      messagesRef.current = next
+      return next
+    })
+  }
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [model, setModel] = useState(defaultModel)
@@ -81,7 +89,7 @@ export function ChatPage() {
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
     if (data) {
-      setMessages(data.map((m) => ({ id: m.id, role: m.role, content: m.content })))
+      setMessagesWithRef(data.map((m) => ({ id: m.id, role: m.role, content: m.content })))
     }
   }
 
@@ -110,7 +118,7 @@ export function ChatPage() {
       role: 'user',
       content: userContent,
     }
-    setMessages((prev) => [...prev, userMsg])
+    setMessagesWithRef((prev) => [...prev, userMsg])
     setLoading(true)
 
     let convId = currentConvId
@@ -125,10 +133,10 @@ export function ChatPage() {
     if (convId) await saveMessage(convId, 'user', userContent)
 
     const assistantId = (Date.now() + 1).toString()
-    setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
+    setMessagesWithRef((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
 
     const aiMessages: AIMessage[] = [
-      ...messages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      ...messagesRef.current.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
       { role: 'user' as const, content: userContent },
     ]
 
@@ -139,7 +147,7 @@ export function ChatPage() {
         model,
         (chunk) => {
           fullResponse += chunk
-          setMessages((prev) =>
+          setMessagesWithRef((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: fullResponse } : m)),
           )
         },
@@ -147,7 +155,7 @@ export function ChatPage() {
       if (convId) await saveMessage(convId, 'assistant', fullResponse)
     } catch (err: unknown) {
       const errorMsg = 'Failed to get AI response. Check your API configuration in Settings.'
-      setMessages((prev) =>
+      setMessagesWithRef((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: errorMsg } : m)),
       )
       toast.error('AI request failed')
@@ -165,7 +173,7 @@ export function ChatPage() {
   }
 
   function startNewChat() {
-    setMessages([])
+    setMessagesWithRef([])
     setCurrentConvId(null)
     navigate('/chat')
   }
